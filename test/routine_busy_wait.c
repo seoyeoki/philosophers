@@ -55,7 +55,9 @@ static void single_philo(t_philo *philo) {
   data = philo->data;
   pthread_mutex_lock(&data->forks[0].mutex);
   print_state(philo, "has taken a fork");
-  ft_usleep(data->time_to_die + 1);
+  while (!is_dead(philo->data)) {
+    // Busy wait loop (no sleep/usleep)
+  }
   pthread_mutex_unlock(&data->forks[0].mutex);
 }
 

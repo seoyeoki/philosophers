@@ -1,0 +1,14 @@
+# Objects
+*.o
+
+# Executables
+philo
+philo_usleep_test
+philo_no_guard_test
+philo_busy_wait_test
+philo_busy_spin_test
+
+# Logs and Temps
+*.log
+.DS_Store
+.claude/
