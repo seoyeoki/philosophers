@@ -1,113 +1,80 @@
-# 📚 Philosophers 프로젝트 핵심 개념 정리
+# Philosophers - The Dining Philosophers Problem
 
-Philosophers 프로젝트의 주요 스케줄링 이론, 다중 스레드 동기화 기법, 데이터 레이스 해결 방안 및 테스트 검증 절차를 정리한 문서입니다.
-
----
-
-## 📌 1. Mandatory와 Bonus의 차이 (메모리와 동기화)
-
-| 구분 | Mandatory | Bonus |
-| :--- | :--- | :--- |
-| **기본 단위** | **스레드 (Thread)** | **프로세스 (Process)** |
-| **메모리 구조** | 하나의 주소 공간을 **모든 스레드가 공유** | `fork()`로 생성되어 **독립된 가상 메모리**를 가짐 |
-| **동기화 도구** | **Mutex** (`pthread_mutex_t`) | **Named Semaphore** (`sem_t`) |
-| **자원 관리** | 스레드 메모리 누수(`pthread_join`) 및 락 경합 방지 필요 | 세마포어 전역 해제 및 프로세스 좀비화 방지(`waitpid`) 필요 |
+An implementation of the classic Dining Philosophers problem, written in C using POSIX threads (`pthread`) and mutexes. Designed and implemented in compliance with the **42 Philosophers project** requirements.
 
 ---
 
-## 📌 2. Mutex를 통한 데이터 레이스 방지 (읽기/쓰기 대칭성)
+## 📖 Overview
 
-데이터 레이스(Data Race)를 원천 차단하기 위해서는 **공유 데이터를 변경할 때(Write)뿐만 아니라 조회할 때(Read)도 동일한 Mutex로 보호**해야 합니다.
+The Dining Philosophers problem is a classic multi-threaded synchronization problem. It illustrates the challenges of allocating shared resources (forks) among multiple processes (philosophers) without causing **deadlock** or **starvation**.
 
-### ❌ Mutex가 없는 위험한 버전 (Data Race 발생)
-스레드 A가 값을 쓰는 동안 스레드 B가 동시에 읽으려고 시도할 때, 데이터가 불완전한 상태로 읽히는 데이터 레이스가 발생합니다.
-```c
-/* Thread A (철학자 식사 시작 시점 기록) */
-philo->last_meal_time = get_time();
+### ⚙️ Simulation Rules
+* One or more philosophers sit at a round table. There is a single large bowl of spaghetti in the middle of the table.
+* The philosophers alternatively **eat**, **sleep**, or **think**. While they are eating, they are not thinking or sleeping; while sleeping, they are not eating or thinking; and, of course, while thinking, they are not eating or sleeping.
+* There are also forks on the table. There are exactly as many forks as philosophers.
+* A philosopher must take their right and left forks to eat.
+* When a philosopher has finished eating, they put their forks back on the table and start sleeping. Once awake, they start thinking.
+* The simulation stops when a philosopher dies of starvation.
+* Philosophers do not speak with each other and do not know if another philosopher is about to die.
 
-/* Thread B (모니터링 스레드 사망 여부 확인) */
-time_since_meal = get_time() - philo->last_meal_time;
+---
+
+## 🛠️ Compilation and Usage
+
+### Prerequisites
+* GCC or Clang compiler
+* POSIX thread library (`pthread`)
+* Make
+
+### Compilation
+Compile the project by running:
+```bash
+make
+```
+This produces the executable named `philo`.
+
+### Running the Simulation
+Execute the compiled binary with the following arguments:
+```bash
+./philo number_of_philosophers time_to_die time_to_eat time_to_sleep [number_of_times_each_philosopher_must_eat]
 ```
 
-###  Mutex로 안전하게 감싼 버전 (대칭 락 적용)
-동일한 `meal_mutex`를 양쪽에 적용하여 한쪽이 기록하는 동안 다른 쪽이 접근하지 못하도록 제어합니다.
-```c
-/* Thread A (철학자 식사 시작 시점 기록) */
-pthread_mutex_lock(&philo->meal_mutex);
-philo->last_meal_time = get_time();
-pthread_mutex_unlock(&philo->meal_mutex);
+* **`number_of_philosophers`**: The number of philosophers and also the number of forks.
+* **`time_to_die`** (in milliseconds): If a philosopher doesn't start eating `time_to_die` milliseconds after their last meal or the start of the simulation, they die.
+* **`time_to_eat`** (in milliseconds): The time it takes for a philosopher to eat (during which they hold both forks).
+* **`time_to_sleep`** (in milliseconds): The time a philosopher spends sleeping.
+* **`[number_of_times_each_philosopher_must_eat]`** (*Optional*): If all philosophers eat at least this many times, the simulation terminates cleanly. If not specified, the simulation runs until a philosopher dies.
 
-/* Thread B (모니터링 스레드 사망 여부 확인) */
-pthread_mutex_lock(&philo->meal_mutex);
-time_since_meal = get_time() - philo->last_meal_time;
-pthread_mutex_unlock(&philo->meal_mutex);
-```
-
-> [!NOTE]  
-> **사망(dead)과 출력(print)의 동시 관리**: 철학자의 사망 플래그(`over` 또는 `dead`)를 갱신하는 시점과 "died" 메시지를 화면에 출력하는 과정은 원자적(Atomic)으로 묶여야 합니다. 이를 분리하면 철학자가 사망한 뒤에도 다른 철학자의 행동 로그가 추가로 출력되는 규정 위반이 발생하므로, 반드시 하나의 `print_mutex` 안에서 안전하게 묶어 관리해야 합니다.
-
----
-
-## 📌 3. 바쁜 대기(Busy Wait)와 스레드 양보
-
-* **바쁜 대기**: 스레드가 CPU 자원을 100% 사용하면서 빈 루프(`while (1)`)를 계속 도는 현상입니다.
-* **현상**: 한 철학자 스레드가 바쁘게 루프를 돌며 자원을 선점하려 하면, 컨텍스트 스위칭이 늦어져 모니터 스레드가 사망 여부를 감시할 타이밍을 놓치게 됩니다.
-* **해결**: 루프 내에 미세한 `usleep` 지연(예: `usleep(1000)`)을 추가하여 CPU 소유권을 다른 스레드에 넘겨주는 **스레드 양보(Yield)** 방식을 적용해야 합니다. CPU 코어가 많으면 증상이 덜 보일 수 있으나 싱글코어 환경이나 한계 테스트 환경에서는 필수적입니다.
-
----
-
-## 📌 4. 모니터와 철학자 스레드 아키텍처
-
-시뮬레이션에서 생성되는 **모든 개별 철학자의 행동 흐름과 감시용 모니터 루틴은 각각 독립적인 스레드**로 구동됩니다.
-* **철학자 스레드**: 루프를 돌며 식사 ➔ 수면 ➔ 생각 행동을 반복적으로 수행합니다.
-* **모니터 스레드**: 별도의 모니터링 루틴에서 철학자들의 `last_meal_time`을 순회 감시하며 한 명이라도 사망 시간을 넘었는지 실시간으로 추적합니다.
-
----
-
-## 📌 5. 식사, 수면, 생각 시간의 조화와 스케줄링 공식
-
-### A. 5조 고정 스케줄링 (5-Group Phasing)
-홀수 명의 철학자가 있을 때, 식탁의 포크 경쟁을 최소화하고 생존 마진을 확보하기 위해 **5조 위상차 분할 공식**을 사용합니다.
-
-* **기동 지연 공식 (Startup Phase Delay)**:
-  ```c
-  delay_mult = ((philo->id - 1) * 2) % 5;
-  if (philo->id == philo->data->num_philos && delay_mult == 0)
-      delay_mult = 2; // 마지막 철학자와 1번 철학자 간의 동시 기상 충돌 차단
-  ft_usleep((T_cycle * delay_mult) / 5);
-  ```
-  이 공식을 통해 철학자 수($N$)가 아무리 늘어나도 기상 딜레이 상한선이 $2 \times \text{time\_to\_eat}$ 이하로 고정되므로, 대규모 인원($N=199$ 등) 테스트에서 기동과 동시에 사망하는 병목 현상을 원천 방지합니다.
-
-* **루프 내 생각 지연 공식 (Thinking Buffer)**:
-  ```c
-  think_time = (data->time_to_eat * 3) / 2 - data->time_to_sleep;
-  ```
-  배가 부른 철학자가 다음 식사 경쟁에 바로 침범하지 않도록 의도적으로 생각을 유도하는 완충 장치입니다.
-
-* **임계 경계선 법칙**:
-  * 식사 바통 터치의 구조상, 수명이 짧은 임계 마진 범위($2 \times \text{time\_to\_eat} < \text{time\_to\_die} < 3 \times \text{time\_to\_eat}$)인 경우 스케줄링 위상차 공식의 정밀도에 따라 시뮬레이션의 전체 생사 여부가 결정됩니다.
-
-### B. Sleep 시간이 짧은 경우 (완충 필요)
-* **짝수 조건**: $\text{time\_to\_die} > 2 \times \text{time\_to\_eat}$
-* **홀수 조건**: $\text{time\_to\_die} > 2.5 \times \text{time\_to\_eat}$
-  * 홀수 명 상황에서는 3개의 시간대가 겹치게 되므로 최소 $2.5$배의 여유 공간이 확보되어야 합니다. $\text{time\_to\_die}$가 $502\text{ms}$처럼 임계선에 딱 붙어 있는 경우, OS의 컨텍스트 스위칭 노이즈로 스레드가 튀며 철학자가 죽을 수 있으므로 위상 공식의 정밀한 타이머 튜닝이 필수적입니다.
-
-### C. Sleep 시간이 긴 경우 (완충 불필요)
-* **생존 조건**: $\text{time\_to\_die} > \text{time\_to\_sleep} + \text{time\_to\_eat}$
-* 잠을 자는 시간이 충분히 길어 포크 점유 시간이 널널한 경우, 별도의 생각 유도 지연(`think_time`) 없이도 자연적으로 100% 생존이 가능합니다.
-
----
-
-## 📌 6. 누수 및 데이터 레이스 테스트 검증
-
-리눅스 환경에서 메모리 및 스레드 경쟁 상태를 검증하기 위한 도구 사용법입니다.
-
-1. **데이터 레이스 검사 (Helgrind)**:
+### Examples
+1. **Philosopher dies of starvation (immediate death)**:
    ```bash
-   valgrind --tool=helgrind ./philo [인자값]
+   ./philo 1 800 200 200
    ```
-2. **OS 스케줄러 노이즈/시뮬레이션 공평성 제어 테스트**:
-   Helgrind 검사 중 OS 스케줄러가 특정 스레드만 편애하여 편향되지 않도록 모든 스레드에 CPU 타임을 공평하게 할당하여 강도 높게 검증하는 옵션입니다.
+2. **Philosophers survive indefinitely**:
    ```bash
-   valgrind --tool=helgrind --fair-scheduled=yes ./philo [인자값]
+   ./philo 5 800 200 200
    ```
+3. **Simulation exits after all eat 7 times**:
+   ```bash
+   ./philo 5 800 200 200 7
+   ```
+
+---
+
+## 🖥️ Output Format
+
+State changes of a philosopher are printed to stdout with the following format:
+* `timestamp_in_ms X has taken a fork`
+* `timestamp_in_ms X is eating`
+* `timestamp_in_ms X is sleeping`
+* `timestamp_in_ms X is thinking`
+* `timestamp_in_ms X died`
+
+*(Where `timestamp_in_ms` is the time elapsed since the start of the simulation in milliseconds, and `X` is the philosopher's ID from 1 to N)*
+
+---
+
+## 💡 Key Design Highlights
+* **Thread Scheduling**: Staggered startup delay ($\frac{T_{\text{cycle}}}{5}$) prevents thread contention and startup starvation under massive table counts (e.g., $N=199$).
+* **Thinking Buffers**: Odd philosopher counts automatically introduce dynamic thinking margins `(1.5 * time_to_eat - time_to_sleep)` to prevent neighboring starvation when eating turns cycle.
+* **Thread Safety**: All reads and writes to shared memory states (`last_meal_time`, `meals_eaten`, global stop flag) are protected symmetrically using mutex locks to completely eliminate data races.
