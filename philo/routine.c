@@ -58,20 +58,27 @@ static void	philo_sleep_think(t_philo *philo)
 
 static void	init_delay(t_philo *philo)
 {
-	int	delay_mult;
+	int			delay_mult;
+	long long	t_cycle;
+	long long	think;
 
-	if (philo->data->num_philos % 2 == 0)
-	{
-		if (philo->id % 2 == 0)
-			ft_usleep(philo->data->time_to_eat);
-	}
-	else
+	if (philo->data->num_philos % 2 == 0 && philo->id % 2 == 0)
+		ft_usleep(philo->data->time_to_eat);
+	else if (philo->data->num_philos % 2 == 1)
 	{
 		delay_mult = ((philo->id - 1) * 2) % 5;
 		if (philo->id == philo->data->num_philos && delay_mult == 0)
 			delay_mult = 2;
 		if (delay_mult > 0)
-			ft_usleep((philo->data->time_to_eat * delay_mult) / 2);
+		{
+			think = (philo->data->time_to_eat * 3) / 2
+				- philo->data->time_to_sleep;
+			if (think < 0)
+				think = 0;
+			t_cycle = philo->data->time_to_eat
+				+ philo->data->time_to_sleep + think;
+			ft_usleep((t_cycle * delay_mult) / 5);
+		}
 	}
 }
 
