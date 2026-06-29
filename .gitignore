@@ -2,7 +2,7 @@
 *.o
 
 # Executables
-philo
+/philo
 philo_usleep_test
 philo_no_guard_test
 philo_busy_wait_test

@@ -1,15 +1,15 @@
-NAME		= philo
+NAME = philo
 
-CC			= cc
-CFLAGS		= -Wall -Wextra -Werror -pthread
+CC = cc
+CFLAGS = -Wall -Wextra -Werror -pthread
 
-SRCS		= main.c init.c utils.c routine.c monitor.c
-OBJS		= $(SRCS:.c=.o)
+SRCS = main.c init.c utils.c monitor.c routine.c
+OBJS = $(SRCS:.c=.o)
 
 all: $(NAME)
 
 $(NAME): $(OBJS)
-	$(CC) $(CFLAGS) -o $(NAME) $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o $(NAME)
 
 %.o: %.c philo.h
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -23,3 +23,4 @@ fclean: clean
 re: fclean all
 
 .PHONY: all clean fclean re
+
