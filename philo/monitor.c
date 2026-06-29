@@ -14,10 +14,10 @@ static int	check_death(t_data *data)
 		pthread_mutex_unlock(&data->philos[i].meal_mutex);
 		if (time_since_meal > data->time_to_die)
 		{
-			timestamp = get_time() - data->start_time;
 			pthread_mutex_lock(&data->print_mutex);
 			if (!data->over)
 			{
+				timestamp = get_time() - data->start_time;
 				printf("%lld %d died\n", timestamp, data->philos[i].id);
 				data->over = 1;
 			}

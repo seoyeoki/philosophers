@@ -1,5 +1,4 @@
 #include "philo.h"
-#include <stdlib.h>
 
 static int	init_forks(t_data *data)
 {
@@ -45,6 +44,8 @@ static int	init_philos(t_data *data)
 		p->data = data;
 		if (pthread_mutex_init(&p->meal_mutex, NULL) != 0)
 		{
+			while (i-- > 0)
+				pthread_mutex_destroy(&data->philos[i].meal_mutex);
 			free(data->philos);
 			data->philos = NULL;
 			return (0);

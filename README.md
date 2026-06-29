@@ -1,10 +1,12 @@
+*This project has been created as part of the 42 curriculum by seoykim.*
+
 # Philosophers - The Dining Philosophers Problem
 
 An implementation of the classic Dining Philosophers problem, written in C using POSIX threads (`pthread`) and mutexes. Designed and implemented in compliance with the **42 Philosophers project** requirements.
 
 ---
 
-## 📖 Overview
+## 📖 Description
 
 The Dining Philosophers problem is a classic multi-threaded synchronization problem. It illustrates the challenges of allocating shared resources (forks) among multiple processes (philosophers) without causing **deadlock** or **starvation**.
 
@@ -17,9 +19,18 @@ The Dining Philosophers problem is a classic multi-threaded synchronization prob
 * The simulation stops when a philosopher dies of starvation.
 * Philosophers do not speak with each other and do not know if another philosopher is about to die.
 
+### 🚫 Global Rules
+* Global variables are forbidden.
+* The program must accept the following command-line arguments:
+  * `number_of_philosophers`: The number of philosophers and also the number of forks.
+  * `time_to_die` (in milliseconds): If a philosopher doesn't start eating `time_to_die` milliseconds after their last meal or the start of the simulation, they die.
+  * `time_to_eat` (in milliseconds): The time it takes for a philosopher to eat (during which they hold both forks).
+  * `time_to_sleep` (in milliseconds): The time a philosopher spends sleeping.
+  * `[number_of_times_each_philosopher_must_eat]` (*Optional*): If all philosophers eat at least this many times, the simulation terminates cleanly.
+
 ---
 
-## 🛠️ Compilation and Usage
+## 🛠️ Instructions
 
 ### Prerequisites
 * GCC or Clang compiler
@@ -27,23 +38,24 @@ The Dining Philosophers problem is a classic multi-threaded synchronization prob
 * Make
 
 ### Compilation
-Compile the project by running:
+Compile the project by navigating to the `philo/` directory and running:
 ```bash
+cd philo
 make
 ```
 This produces the executable named `philo`.
+
+The `Makefile` supports the following rules:
+* `make` / `make all`: Compiles the source files into the `philo` executable.
+* `make clean`: Removes all object files (`.o`).
+* `make fclean`: Removes all object files and the executable.
+* `make re`: Performs a clean rebuild (re-compilation).
 
 ### Running the Simulation
 Execute the compiled binary with the following arguments:
 ```bash
 ./philo number_of_philosophers time_to_die time_to_eat time_to_sleep [number_of_times_each_philosopher_must_eat]
 ```
-
-* **`number_of_philosophers`**: The number of philosophers and also the number of forks.
-* **`time_to_die`** (in milliseconds): If a philosopher doesn't start eating `time_to_die` milliseconds after their last meal or the start of the simulation, they die.
-* **`time_to_eat`** (in milliseconds): The time it takes for a philosopher to eat (during which they hold both forks).
-* **`time_to_sleep`** (in milliseconds): The time a philosopher spends sleeping.
-* **`[number_of_times_each_philosopher_must_eat]`** (*Optional*): If all philosophers eat at least this many times, the simulation terminates cleanly. If not specified, the simulation runs until a philosopher dies.
 
 ### Examples
 1. **Philosopher dies of starvation (immediate death)**:
@@ -59,11 +71,8 @@ Execute the compiled binary with the following arguments:
    ./philo 5 800 200 200 7
    ```
 
----
-
-## 🖥️ Output Format
-
-State changes of a philosopher are printed to stdout with the following format:
+### Output Format
+State changes of a philosopher are printed to standard output (stdout) with the following format:
 * `timestamp_in_ms X has taken a fork`
 * `timestamp_in_ms X is eating`
 * `timestamp_in_ms X is sleeping`
@@ -75,6 +84,24 @@ State changes of a philosopher are printed to stdout with the following format:
 ---
 
 ## 💡 Key Design Highlights
-* **Thread Scheduling**: Staggered startup delay ($\frac{T_{\text{cycle}}}{5}$) prevents thread contention and startup starvation under massive table counts (e.g., $N=199$).
-* **Thinking Buffers**: Odd philosopher counts automatically introduce dynamic thinking margins `(1.5 * time_to_eat - time_to_sleep)` to prevent neighboring starvation when eating turns cycle.
-* **Thread Safety**: All reads and writes to shared memory states (`last_meal_time`, `meals_eaten`, global stop flag) are protected symmetrically using mutex locks to completely eliminate data races.
+* **Thread Safety & Data Race Prevention**: Symmetrical mutex locking protects all read/write accesses to shared variables (such as `last_meal_time`, `meals_eaten`, and the simulation ending flag `over`) to prevent data races.
+* **Deadlock Prevention (Asymmetric Fork Acquisition)**: Philosophers acquire forks in a specific order (e.g., lower index first) to break the circular wait condition.
+* **Thread Scheduling & Staggered Startup**: A dynamic initial delay is applied to philosophers based on their ID to prevent lock contention and initial starvation (critical for large tables like N=199).
+* **Thinking Buffers (Odd Count Handling)**: Dynamic thinking margins `(1.5 * time_to_eat - time_to_sleep)` are calculated for odd counts of philosophers to ensure stable rotation of forks and prevent starvation.
+
+---
+
+## 📚 Resources
+
+### References
+* [Dining Philosophers Problem - Wikipedia](https://en.wikipedia.org/wiki/Dining_philosophers_problem)
+* [POSIX Threads Programming (pthread)](https://computing.llnl.gov/tutorials/pthreads/)
+* [Multithreaded Programming Guide (Oracle)](https://docs.oracle.com/cd/E19455-01/806-5257/index.html)
+* [Data Races and Mutex Locks](https://www.geeksforgeeks.org/mutex-lock-for-thread-synchronization-in-c/)
+
+### AI Usage Statement
+During the development of this project, an AI assistant was utilized to assist with the following tasks and components:
+* **System Design & Mathematical Formulas**: Assisted in calculating the optimal startup delay (`init_delay`) and think buffer times for odd/even philosopher count configurations to avoid starvation under massive thread counts.
+* **Concurrency Debugging**: Guided the design of thread synchronization mechanisms, ensuring symmetrical locking of all shared resource accesses to eliminate data races.
+* **Testing Guidelines & Verification**: Assisted in drafting evaluation test cases, command cheat sheets, and setting up compilation/leak sanitizers (`-fsanitize=thread`, `-fsanitize=address`) and Valgrind tools.
+* **Documentation**: Helped structure and formulate the explanation of concurrent scheduling, study notes (`학습내용.md`), and the project `README.md` according to the 42 curriculum standards.
